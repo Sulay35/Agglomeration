@@ -23,7 +23,7 @@ class Vector2{
 		Vector2()
 			: x(0.0f), y(0.0f)
 		{}
-		Vector2(float x, float y)
+		Vector2(int x, int y)
 			: x(x), y(y)
 		{}
 
@@ -37,9 +37,35 @@ class Vector2{
 			y+=rhs.y;
 			return *this;
 		}
-		Vector2 operator*(float rhs)
+		Vector2 operator*(int rhs)
 		{
 			return Vector2(x*rhs, y*rhs);
+		}	
+		int x,y;
+};
+
+class Vector2f{
+	public:
+		Vector2f()
+			: x(0.0f), y(0.0f)
+		{}
+		Vector2f(float x, float y)
+			: x(x), y(y)
+		{}
+
+		Vector2f operator+(Vector2f const& rhs)
+		{
+			return Vector2f(x+rhs.x, y+rhs.y);
+		}	
+		Vector2f& operator +=(Vector2f const& rhs)
+		{
+			x+=rhs.x;
+			y+=rhs.y;
+			return *this;
+		}
+		Vector2f operator*(float rhs)
+		{
+			return Vector2f(x*rhs, y*rhs);
 		}	
 		float x,y;
 };
@@ -247,20 +273,18 @@ int main( int argc, char* args[] )
 	float dt = 0.0f;
 	bool buttons[4] = {};
 
-	std::vector<std::vector<int>> v(4, std::vector<int> (5, 0)) ;	
+	int population = 10000;
 
-	std::vector<std::vector<Cell>> grid; 
+	std::vector<Cell> people; 
+
 	Cell c;
-	for(int i = 0; i < SCREEN_WIDTH; i++){
-		std::vector<Cell> line;
-		for(int j = 0; j < SCREEN_HEIGHT; j++){
-				c =  Cell(Vector2(i,j));
-				line.push_back(c);
-			}
-			grid.push_back(line);
+	for(int j = 0; j < population; j++){
+		c =  Cell(Vector2(
+			(int) rand()%SCREEN_WIDTH,
+			(int) rand()%SCREEN_WIDTH)
+		);
+		people.push_back(c);
 	}
-
-
 
 	//Start up SDL and create window
 	if(!init(window, renderer, screenSurface))
@@ -298,25 +322,13 @@ int main( int argc, char* args[] )
 					}
 				}
 			}
-			SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 			SDL_RenderClear(renderer);
 
-			if(buttons[Buttons::SPACE] || 1){
-				for(int x = 0; x < SCREEN_WIDTH; x++){
-					for(int y = 0; y < SCREEN_HEIGHT; y++){
-						//grid[x][y].state = rand()%2;
-						grid[x][y].dir += 1;
-						grid[x][y].dir %= 7;
-						grid[x][y].Update();
-					}
-				}
-			}
 			// Draw the grid
-			for(int x = 0; x < SCREEN_WIDTH; x++){
-				for(int y = 0; y < SCREEN_HEIGHT; y++){
-					SDL_SetRenderDrawColor(renderer, 255*grid[x][y].state, 255*grid[x][y].state, 255*grid[x][y].state, 0xFF);
-					SDL_RenderDrawPointF(renderer, grid[x][y].pos.x, grid[x][y].pos.y);
-				}
+			for(int i = 0; i < population; i++){
+				SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+				SDL_RenderDrawPoint(renderer, people[i].pos.x, people[i].pos.y);
 			}
 			SDL_RenderPresent(renderer);
 
