@@ -1,0 +1,9 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/aysul/Documents/projects/graphics/grid",
+            "binaryPath": "/home/aysul/Documents/projects/graphics/grid/grid",
+            "binaryArgs": []
+        }
+    ]
+}

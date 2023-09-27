@@ -16,14 +16,42 @@ const int SCREEN_HEIGHT = 720;
  * TODO : 
  * - grid of pointer instead of object 
  * - Agglomerations
+ * - Vector.distance(v1, v2)
+ * - Prog Dyn for distances (2D table with distances)
 */
+
+class Vector2i{
+	public:
+		Vector2i()
+			: x(0.0f), y(0.0f)
+		{}
+		Vector2i(int x, int y)
+			: x(x), y(y)
+		{}
+
+		Vector2i operator+(Vector2i const& rhs)
+		{
+			return Vector2i(x+rhs.x, y+rhs.y);
+		}	
+		Vector2i& operator +=(Vector2i const& rhs)
+		{
+			x+=rhs.x;
+			y+=rhs.y;
+			return *this;
+		}
+		Vector2i operator*(int rhs)
+		{
+			return Vector2i(x*rhs, y*rhs);
+		}	
+		int x,y;
+};
 
 class Vector2{
 	public:
 		Vector2()
 			: x(0.0f), y(0.0f)
 		{}
-		Vector2(int x, int y)
+		Vector2(float x, float y)
 			: x(x), y(y)
 		{}
 
@@ -37,36 +65,25 @@ class Vector2{
 			y+=rhs.y;
 			return *this;
 		}
-		Vector2 operator*(int rhs)
+		Vector2 operator*(float rhs)
 		{
 			return Vector2(x*rhs, y*rhs);
 		}	
-		int x,y;
-};
 
-class Vector2f{
-	public:
-		Vector2f()
-			: x(0.0f), y(0.0f)
-		{}
-		Vector2f(float x, float y)
-			: x(x), y(y)
-		{}
-
-		Vector2f operator+(Vector2f const& rhs)
+		Vector2 operator/(float rhs)
 		{
-			return Vector2f(x+rhs.x, y+rhs.y);
+			return Vector2(x/rhs, y/rhs);
 		}	
-		Vector2f& operator +=(Vector2f const& rhs)
-		{
-			x+=rhs.x;
-			y+=rhs.y;
-			return *this;
+
+		Vector2 normalized(){
+			return Vector2(x/norm(), y/norm());
+			//return Vector2(x, y)/norm();
 		}
-		Vector2f operator*(float rhs)
-		{
-			return Vector2f(x*rhs, y*rhs);
-		}	
+
+		float norm(){
+			sqrt(x*x + y*y);
+		}
+
 		float x,y;
 };
 
@@ -84,53 +101,35 @@ enum Direction{
 class Cell{
 	public:
 
-		Cell(Vector2 pos, int st, int d) : pos(pos), state(st), dir(d)
+		Cell(Vector2 pos, Vector2 vel, int st, int d) : pos(pos), vel(vel), state(st) 
 		{}
 
 		Cell(Vector2 pos) : pos(pos)
 		{
+			vel = Vector2(1.0f, 1.0f);
 			state = (int)rand()%2;
-			dir = (int)rand()%8;
 		}
 
 		Cell(){
 			pos.x = 0.0f;
 			pos.y = 0.0f;
 			state = (int)rand()%2;
-			dir = (int)rand()%8;
 		}
 
-		void Update(){
-			Vector2 vDir;
-			if(dir == 0){
-				vDir.x = 0;
-				vDir.y = -1;
-			}else if (dir == 1){
-				vDir.x = 1;
-				vDir.y = -1;
-			}else if (dir == 2){
-				vDir.x = 1;
-				vDir.y = 0;
-			}else if (dir == 3){
-				vDir.x = 1;
-				vDir.y = 1;
-			}else if (dir == 4){
-				vDir.x = 0;
-				vDir.y = 1;
-			}else if (dir == 5){
-				vDir.x = -1;
-				vDir.y = 1;
-			}else if (dir == 6){
-				vDir.x = -1;
-				vDir.y = 0;
-			}else if (dir == 7){
-				vDir.x = -1;
-				vDir.y = -1;
-			}
-			pos += vDir;
+		void Update(float dt, Vector2 dest){
+			//vel.x = neighbors[0].pos.x - pos.x;
+			//vel.y = neighbors[0].pos.y - pos.y;
+			
+			vel.x = 0.01f*(dest.x - pos.x)*dt;
+			vel.y = 0.01f*(dest.y - pos.y)*dt;
+			pos += vel.normalized();
 		}
+
+		std::vector<Cell> neighbors;
+
 		Vector2 pos;
-		int dir; // direction [0-7]
+		Vector2 vel;
+
 		int state;
 };
 
@@ -204,7 +203,7 @@ bool init(SDL_Window* & gW, SDL_Renderer* & gR, SDL_Surface* & gSS)
 					printf( "TTF could not be initialized! TTF Error: %s\n", TTF_GetError());
 					success = false;
 				}else{
-					printf("Everything initialized!");
+					printf("Everything initialized!\n");
 					gSS = SDL_GetWindowSurface(gW);
 				}
 			}
@@ -273,7 +272,8 @@ int main( int argc, char* args[] )
 	float dt = 0.0f;
 	bool buttons[4] = {};
 
-	int population = 10000;
+	Vector2 mousePos;
+	int population = 200000;
 
 	std::vector<Cell> people; 
 
@@ -283,7 +283,15 @@ int main( int argc, char* args[] )
 			(int) rand()%SCREEN_WIDTH,
 			(int) rand()%SCREEN_WIDTH)
 		);
+		// A random neighbor
 		people.push_back(c);
+	}
+	Cell cCenter = Cell(Vector2(SCREEN_WIDTH/2.0f, SCREEN_HEIGHT/2.0f));
+	
+	for(int j = 0; j < population; j++){
+		c = people[j];
+		//c.neighbors.push_back(people[(int) rand() % (population)]);
+		c.neighbors.push_back(cCenter);
 	}
 
 	//Start up SDL and create window
@@ -322,12 +330,55 @@ int main( int argc, char* args[] )
 					}
 				}
 			}
+
+			if(buttons[Buttons::SPACE]){
+
+				for(int j = 0; j < population; j++){
+					people.clear();
+				}
+				for(int j = 0; j < population; j++){
+					c =  Cell(Vector2(
+						(int) rand()%SCREEN_WIDTH,
+						(int) rand()%SCREEN_WIDTH)
+					);
+					// A random neighbor
+					people.push_back(c);
+				}
+				}
+
+			// neighbors 
+			/*
+			float d;
+			for(int i = 0; i < population; i++){
+				
+				Vector2 v1 = people[i].pos;
+				int jMin = 0;
+				float dMin = MAXFLOAT;
+				for(int j = 0; j < population; j++){
+					Vector2 v2 = people[j].pos;
+					if(i!=j){
+						d = sqrt((v2.x - v1.x)*(v2.x - v1.x) + (v2.y - v1.y)*(v2.y - v1.y));
+						if(d<dMin){
+							jMin = j;
+							dMin = d;
+						}
+					}
+				}
+				(people[i]).neighbors[0] = people[jMin];
+			}
+			*/
+			int a,b;
+			SDL_GetMouseState(&a, &b);
+			mousePos.x = a;
+			mousePos.y = b;
+
 			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 			SDL_RenderClear(renderer);
 
 			// Draw the grid
 			for(int i = 0; i < population; i++){
 				SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+				people[i].Update(dt, mousePos);
 				SDL_RenderDrawPoint(renderer, people[i].pos.x, people[i].pos.y);
 			}
 			SDL_RenderPresent(renderer);

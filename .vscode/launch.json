@@ -1,10 +1,11 @@
 {
     "configurations": [
+        
         {
             "name": "C/C++: g++ build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/${fileBasenameNoExtension}",
+            "program": "grid.cpp",
             "args": ["-w", "-Wall", "-lSDL2", "-lSDL2_image","-lSDL2_ttf"], 
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
