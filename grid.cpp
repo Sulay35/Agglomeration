@@ -18,33 +18,8 @@ const int SCREEN_HEIGHT = 720;
  * - Agglomerations
  * - Vector.distance(v1, v2)
  * - Prog Dyn for distances (2D table with distances)
+ * - desired velocity for inertia
 */
-
-class Vector2i{
-	public:
-		Vector2i()
-			: x(0.0f), y(0.0f)
-		{}
-		Vector2i(int x, int y)
-			: x(x), y(y)
-		{}
-
-		Vector2i operator+(Vector2i const& rhs)
-		{
-			return Vector2i(x+rhs.x, y+rhs.y);
-		}	
-		Vector2i& operator +=(Vector2i const& rhs)
-		{
-			x+=rhs.x;
-			y+=rhs.y;
-			return *this;
-		}
-		Vector2i operator*(int rhs)
-		{
-			return Vector2i(x*rhs, y*rhs);
-		}	
-		int x,y;
-};
 
 class Vector2{
 	public:
@@ -75,13 +50,39 @@ class Vector2{
 			return Vector2(x/rhs, y/rhs);
 		}	
 
-		Vector2 normalized(){
-			return Vector2(x/norm(), y/norm());
-			//return Vector2(x, y)/norm();
+		Vector2 operator*=(float rhs){
+			return Vector2(x*rhs, y*rhs);
 		}
 
+		Vector2 operator/=(float rhs){
+			return Vector2(x/rhs, y/rhs);
+		}
+
+		Vector2 normalized(){
+			Vector2 normalized = (*this)/norm();
+			// printf("\tf_normalized = %f \n",normalized.norm());
+			return normalized;
+
+		}
+
+		void setMag(float magnitude){
+			if(magnitude!=0.0f)
+				*this =  this->normalized() * magnitude;
+			//printf("\t%f\tf = %f \n",magnitude, this->norm());
+		}
+
+		void limit(float limit){
+			if(this->norm() > limit){
+				setMag(limit);
+			}
+		}
 		float norm(){
-			sqrt(x*x + y*y);
+			return sqrt(x*x + y*y);
+		}
+
+		void add(Vector2 *v2){
+			x += v2->x;
+			y += v2->y;
 		}
 
 		float x,y;
@@ -98,6 +99,7 @@ enum Direction{
 	NO
 };
 
+
 class Cell{
 	public:
 
@@ -106,29 +108,68 @@ class Cell{
 
 		Cell(Vector2 pos) : pos(pos)
 		{
-			vel = Vector2(1.0f, 1.0f);
+			vel = Vector2(-1 + rand()%3, -1 +rand()%3);
+			//vel = Vector2();
 			state = (int)rand()%2;
 		}
 
 		Cell(){
 			pos.x = 0.0f;
 			pos.y = 0.0f;
+			vel = Vector2(-1 + rand()%3, -1 +rand()%3);
 			state = (int)rand()%2;
 		}
 
-		void Update(float dt, Vector2 dest){
-			//vel.x = neighbors[0].pos.x - pos.x;
-			//vel.y = neighbors[0].pos.y - pos.y;
+		void Update(float dt){
+			vel.add(&acc);
+			acc.limit(maxSpeed);
+			vel.limit(maxSpeed);
+			//printf("v = %f \n", acc.norm());
+			pos.add(&vel);
+		}
+		
+		void attract(Cell * object){
+			Vector2 r; 
+			//r.x = object->pos.x - pos.x;
+			//r.y = object->pos.y - pos.y;
+			r.x = pos.x - object->pos.x;
+			r.y = pos.y - object->pos.y;
+
+			float d = r.norm();
+			float G = 1.0f;
+			float f;
 			
-			vel.x = 0.01f*(dest.x - pos.x)*dt;
-			vel.y = 0.01f*(dest.y - pos.y)*dt;
-			pos += vel.normalized();
+
+			d*=d;
+			d = d > 50.0f ? 50.0f : d;
+			d = d < 5.0f ? 5.0f : d;
+
+			Vector2 force; 
+			force = r.normalized();
+
+			// printf("f = %f \n", force.norm());
+			f = G/d;
+			// printf("d = %f, norm = %f, G/d =%f \n", d, r.norm(),f);
+			force.setMag(G/d);
+
+			// printf("\tf = %f \n", force.norm());
+
+			object->applyForce(&force);
 		}
 
-		std::vector<Cell> neighbors;
+		void applyForce(Vector2 *force){
+			//printf("\t\tf = %f \n", force->norm());
+			acc.add(force);
+			//printf("\ta = %f \n", acc.norm());
+		}
+
+		Vector2 destination;
 
 		Vector2 pos;
 		Vector2 vel;
+		Vector2 acc;
+
+		float maxSpeed = 2.0f;
 
 		int state;
 };
@@ -273,7 +314,7 @@ int main( int argc, char* args[] )
 	bool buttons[4] = {};
 
 	Vector2 mousePos;
-	int population = 200000;
+	int population = 10000;
 
 	std::vector<Cell> people; 
 
@@ -288,12 +329,6 @@ int main( int argc, char* args[] )
 	}
 	Cell cCenter = Cell(Vector2(SCREEN_WIDTH/2.0f, SCREEN_HEIGHT/2.0f));
 	
-	for(int j = 0; j < population; j++){
-		c = people[j];
-		//c.neighbors.push_back(people[(int) rand() % (population)]);
-		c.neighbors.push_back(cCenter);
-	}
-
 	//Start up SDL and create window
 	if(!init(window, renderer, screenSurface))
 	{
@@ -320,6 +355,9 @@ int main( int argc, char* args[] )
 					running = false;
 				}
 				else if(e.type == SDL_KEYDOWN){
+					if(e.key.keysym.sym == SDLK_ESCAPE){
+						running = false;
+					}
 					if(e.key.keysym.sym == SDLK_SPACE){
 						buttons[Buttons::SPACE] = true;
 					}
@@ -330,6 +368,12 @@ int main( int argc, char* args[] )
 					}
 				}
 			}
+
+			// INPUT
+			int a,b;
+			SDL_GetMouseState(&a, &b);
+			mousePos.x = a;
+			mousePos.y = b;
 
 			if(buttons[Buttons::SPACE]){
 
@@ -350,7 +394,6 @@ int main( int argc, char* args[] )
 			/*
 			float d;
 			for(int i = 0; i < population; i++){
-				
 				Vector2 v1 = people[i].pos;
 				int jMin = 0;
 				float dMin = MAXFLOAT;
@@ -364,23 +407,39 @@ int main( int argc, char* args[] )
 						}
 					}
 				}
-				(people[i]).neighbors[0] = people[jMin];
+				//people[i].destination = people[jMin].pos;
+				people[i].destination = cCenter.pos;
+			}
+			for(int i = 0; i < population; i++){
+			for(int j = 0; j < population; j++){
+					if(i!=j)
+					people[i].attract(people[j]);
+				}
 			}
 			*/
-			int a,b;
-			SDL_GetMouseState(&a, &b);
-			mousePos.x = a;
-			mousePos.y = b;
 
-			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+			cCenter.pos = mousePos;
+
+			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0x0F);
 			SDL_RenderClear(renderer);
 
+			SDL_Rect fRect;
 			// Draw the grid
 			for(int i = 0; i < population; i++){
 				SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
-				people[i].Update(dt, mousePos);
-				SDL_RenderDrawPoint(renderer, people[i].pos.x, people[i].pos.y);
+				cCenter.attract(&people[i]);
+				people[i].Update(dt);
+				fRect.x = people[i].pos.x;
+				fRect.y = people[i].pos.y;
+
+				fRect.w = 5;
+				fRect.h = 5;
+				//SDL_RenderDrawRect(renderer, &fRect);
+
+				SDL_RenderDrawPointF(renderer, people[i].pos.x, people[i].pos.y);
+				//SDL_RenderDrawPointF(renderer, people[i].pos.x, people[i].pos.y);
 			}
+			
 			SDL_RenderPresent(renderer);
 
 			// compute the time delta  
