@@ -21,7 +21,6 @@ const int SCREEN_HEIGHT = 720;
 */
 bool init(SDL_Window* & gW, SDL_Renderer* & gR, SDL_Surface* & gSS);
 
-
 /**
  * Frees media and shuts down SDL
  * 

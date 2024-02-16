@@ -14,6 +14,8 @@
  * - Vector.distance(v1, v2)
  * - draw according to speed
  * dt
+ * - use fouble instead of float
+ * - constraint pos to windows size
  *
 */
 
@@ -158,6 +160,17 @@ class Cell{
 			//printf("v = %f \n", acc.norm());
 			pos.add(&vel);
 		}
+
+        void keep_in_bounds(float minX, float maxX, float minY, float maxY){
+            if(pos.x >= maxX)
+                pos.x = minX;
+            else if(pos.x <= minX)
+                pos.x = maxX;
+            if(pos.y >= maxY)
+                pos.y = minY;
+            else if(pos.y <= minY)
+                pos.y = maxY;
+        }
 
 		void attract(Cell * object){
 			Vector2 r;
@@ -355,7 +368,7 @@ int main( int argc, char* args[] )
 	attractionPoints.push_back(&cCenter);
 
 	// FlowGrid
-	int flowRes = 100;
+	int flowRes = 50;
 	std::vector<FlowPoint> flowPointArray;
 	FlowPoint fp;
 
@@ -455,46 +468,73 @@ int main( int argc, char* args[] )
 
 			//Draw the flow grid with lines
 			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xAC);
+            auto t3 = std::chrono::high_resolution_clock::now();
+            tf = std::chrono::duration<float, std::chrono::milliseconds::period>(t3 - t0).count();
 			for(FlowPoint& fPoint : flowPointArray){
-				auto t3 = std::chrono::high_resolution_clock::now();
-				tf = std::chrono::duration<float, std::chrono::milliseconds::period>(t3 - t0).count();
 				Vector2 r;
-				r.x = mousePos.x - fPoint.pos.x;
-				r.y = mousePos.y - fPoint.pos.y;
-				r.x = perlin.octave2D_01((tf * .001), (.001), 1);
-				r.y = perlin.octave2D_01((tf + 10)*.001, (tf*  .001), 1);
-				fPoint.vel =  r*10;
-                //fPoint.vel = fPoint.vel.normalized();
+				//r.x = mousePos.x - fPoint.pos.x;
+				//r.y = mousePos.y - fPoint.pos.y;
+				r.x = (float) perlin.normalizedOctave1D(fPoint.pos.x/SCREEN_WIDTH + tf*.0001, 2);
+				r.y = (float) perlin.normalizedOctave1D(fPoint.pos.y/SCREEN_HEIGHT  + tf*.0001, 2);
+				fPoint.vel =  r;
+                fPoint.vel = fPoint.vel.normalized();
 				SDL_RenderDrawLineF(renderer, fPoint.pos.x, fPoint.pos.y, fPoint.pos.x + fPoint.vel.x * 20, fPoint.pos.y + fPoint.vel.y * 20);
 			}
 
 			// Draw the grid
 			// 618264
-			SDL_SetRenderDrawColor(renderer, 0x61, 0x82, 0x64, 0xFF);
+			//SDL_SetRenderDrawColor(renderer, 0x61, 0x82, 0x64, 0xFF);
 			//SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 			for(int i = 0; i < population; i++){
 				for(FlowPoint fPoint : flowPointArray){
-						/*printf("FlowPoint : (%3.3f, %3.3f) v=(%f, %f)\n",
+						/*printf("FlowPoint : (%3.f, %3.f) v=(%.2f, %.2f)\n",
 						fPoint.pos.x,
 						fPoint.pos.y,
 						fPoint.vel.x,
 						fPoint.vel.y
 						);
-						*/
+						 */
+
 					Vector2 r;
 					r.x = people[i].pos.x - fPoint.pos.x;
 					r.y = people[i].pos.y - fPoint.pos.y;
 
 					float d = r.norm();
-					if(d!= 0){
+					if(d >= 0.01 && d <= 50){
 						Vector2 force =fPoint.vel;
-						force.setMag(2.0f/(d));
+						force.setMag(1.0f/(d));
 						people[i].applyForce(&force);
 					}
 
 				}
 				people[i].Update(dt);
-				SDL_RenderDrawPointF(renderer, people[i].pos.x, people[i].pos.y);
+                people[i].keep_in_bounds(0,SCREEN_WIDTH, 0, SCREEN_HEIGHT);
+
+                // Draw a square
+                SDL_Rect fRect;
+/*                fRect.x = people[i].pos.x;
+                float rem = fRect.x%5;
+                if(rem < 2.5f)
+                    fRect.x = fRect.x - rem;
+                else
+                    fRect.x = fRect.x + (5 - rem);
+
+                fRect.y = people[i].pos.y;
+
+                rem = fRect.y%5;
+                if(rem < 2.5f)
+                    fRect.y = fRect.y - rem;
+                else
+                    fRect.y = fRect.y + (5 - rem);
+*/
+                fRect.w = 5;
+                fRect.x = people[i].pos.x;
+                fRect.y = people[i].pos.y;
+                fRect.h = 5;
+                SDL_RenderFillRect(renderer, &fRect);
+
+                // Draw a pixel
+                //SDL_RenderDrawPointF(renderer, people[i].pos.x, people[i].pos.y);
 			}
 
 			SDL_FRect r;
