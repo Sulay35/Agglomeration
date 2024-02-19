@@ -2,10 +2,19 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <string>
-//Screen dimension constants
+#include <cstdio>
+#include <cstdlib>
+#include <chrono>
+#include <vector>
+#include <random>
 
-const int SCREEN_WIDTH = 1280;
-const int SCREEN_HEIGHT = 720;
+#include "flowpoint.h"
+#include "cell.h"
+#include "../lib/PerlinNoise/PerlinNoise.hpp"
+
+//Screen dimension constants
+const int SCREEN_WIDTH = 1920;
+const int SCREEN_HEIGHT = 1080;
 
 /**
  * Start up and initialize SDL

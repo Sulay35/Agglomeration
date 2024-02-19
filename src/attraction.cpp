@@ -1,221 +1,14 @@
-#include <stdio.h>
-#include <cstdlib>
-#include <chrono>
-#include <vector>
-#include <random>
-#include "attraction.h"
-
-# include "./PerlinNoise/PerlinNoise.hpp"
-
+#include "../include/attraction.h"
 /**
  * TODO :
  * - grid of pointer instead of object
  * - Agglomerations
  * - Vector.distance(v1, v2)
  * - draw according to speed
- * dt
- * - use fouble instead of float
  * - constraint pos to windows size
- *
+ * - * dt pour le movement
 */
 
-class Vector2{
-	public:
-		Vector2()
-			: x(0.0f), y(0.0f)
-		{}
-		Vector2(float x, float y)
-			: x(x), y(y)
-		{}
-
-		Vector2 operator+(Vector2 const& rhs)
-		{
-			return Vector2(x+rhs.x, y+rhs.y);
-		}
-
-		Vector2& operator +=(Vector2 const& rhs)
-		{
-			x+=rhs.x;
-			y+=rhs.y;
-			return *this;
-		}
-
-		Vector2 operator*(float rhs) const
-		{
-			return Vector2(x*rhs, y*rhs);
-		}
-
-		Vector2 operator/(float rhs) const
-		{
-			return Vector2(x/rhs, y/rhs);
-		}
-
-		Vector2 operator*=(float rhs) const
-        {
-			return Vector2(x*rhs, y*rhs);
-		}
-
-		Vector2 operator/=(float rhs) const
-        {
-			return Vector2(x/rhs, y/rhs);
-		}
-
-		Vector2 normalized(){
-			Vector2 normalized = (*this)/norm();
-			return normalized;
-		}
-
-		void setMag(float magnitude){
-			if(magnitude!=0.0f)
-				*this = this->normalized() * magnitude;
-			else
-				*this = Vector2(0.0f, 0.0f);
-			//printf("\t%f\tf = %f \n",magnitude, this->norm());
-		}
-
-		void limit(float limit){
-			if(this->norm() > limit){
-				setMag(limit);
-			}
-		}
-		float norm() const
-        {
-			return sqrt(x*x + y*y);
-		}
-
-		void add(Vector2 *v2)
-        {
-			x += v2->x;
-			y += v2->y;
-		}
-
-		float x,y;
-};
-
-enum Direction{
-	N,
-	NE,
-	E,
-	SE,
-	S,
-	SO,
-	O,
-	NO
-};
-
-/*
- * A Flowpoint is a fixed point with a velocity. It can affect neighboring entities
- */
-class FlowPoint{
-	public:
-		explicit FlowPoint(Vector2 pos) : pos(pos)
-        {
-			vel = Vector2(0.0f,0.0f);
-		}
-		FlowPoint(Vector2 pos, Vector2 vel) : pos(pos), vel(vel){}
-		FlowPoint(){
-			pos = Vector2(0.0f,0.0f);
-			vel = Vector2(0.0f,0.0f);
-		}
-	Vector2 pos;
-	Vector2 vel;
-};
-
-/**
- * Cell is a living pixel, it has a position and a velocity, a state
- *
- * @param pos initial position
- * @param vel initial velocity
- * @param st initial state
- * @note it can be initialized with or without initial values, for the latter,
- * random values are given or 0,0 for its position
-*/
-class Cell{
-	public:
-
-		Cell(Vector2 pos, Vector2 vel, int st, int d) : pos(pos), vel(vel), state(st)
-		{}
-
-		explicit Cell(Vector2 pos) : pos(pos)
-		{
-			vel = Vector2(-1 + rand()%3, -1 +rand()%3);
-			state = (int)rand()%2;
-		}
-
-		Cell(){
-			pos.x = 0.0f;
-			pos.y = 0.0f;
-			vel = Vector2(-1 + rand()%3, -1 +rand()%3);
-			state = (int)rand()%2;
-		}
-
-        /*
-         * Update the cell : acceleration is added to velocity, and limits are applied
-         *
-         */
-		void Update(float dt){
-			vel.add(&acc);
-			acc.limit(maxSpeed);
-			vel.limit(maxSpeed);
-			//printf("v = %f \n", acc.norm());
-			pos.add(&vel);
-		}
-
-        void keep_in_bounds(float minX, float maxX, float minY, float maxY){
-            if(pos.x >= maxX)
-                pos.x = minX;
-            else if(pos.x <= minX)
-                pos.x = maxX;
-            if(pos.y >= maxY)
-                pos.y = minY;
-            else if(pos.y <= minY)
-                pos.y = maxY;
-        }
-
-		void attract(Cell * object){
-			Vector2 r;
-			//r.x = object->pos.x - pos.x;
-			//r.y = object->pos.y - pos.y;
-			r.x = pos.x - object->pos.x;
-			r.y = pos.y - object->pos.y;
-
-			float d = r.norm();
-			float G = 1.5f;
-			float f;
-
-			d*=d;
-			d = d > 100.0f ? 100.0f : d;
-			d = d < 5.0f ? 5.0f : d;
-
-			Vector2 force;
-			force = r.normalized();
-
-			// printf("f = %f \n", force.norm());
-			f = G/d;
-			// printf("d = %f, norm = %f, G/d =%f \n", d, r.norm(),f);
-			force.setMag(G/d);
-
-			// printf("\tf = %f \n", force.norm());
-
-			object->applyForce(&force);
-		}
-
-		void applyForce(Vector2 *force){
-			//printf("\t\tf = %f \n", force->norm());
-			acc.add(force);
-			//printf("\ta = %f \n", acc.norm());
-		}
-
-		Vector2 destination;
-
-		Vector2 pos;
-		Vector2 vel;
-		Vector2 acc;
-
-		float maxSpeed = 2.0f;
-
-		int state;
-};
 
 enum Buttons{
 	SPACE,
@@ -313,8 +106,10 @@ SDL_Texture* loadTexture(SDL_Renderer* sR, std::string path )
 
 int main( int argc, char* args[] )
 {
-	const siv::PerlinNoise::seed_type seed = 123456u;
-	const siv::PerlinNoise perlin{ seed };
+	const siv::PerlinNoise::seed_type seed1 = 123456u;
+	const siv::PerlinNoise perlinX{ seed1 };
+    const siv::PerlinNoise::seed_type seed2 = -654321u;
+    const siv::PerlinNoise perlinY{ seed2 };
 
 	SDL_Window* window = nullptr;
 
@@ -332,15 +127,13 @@ int main( int argc, char* args[] )
 	float dt_click = 0.0f;
 	auto t0 = std::chrono::high_resolution_clock::now();
 
-    // Position of the mouse
-    Vector2 mousePos;
+	// Position of the mouse
+	Vector2 mousePos;
 
-    // Button states are kept in a table
+	// Button states are kept in a table
 	bool buttons[4] = {};
 
-	bool gravity = true;
-
-    // Number of cells to spawn
+	// Number of cells to spawn
 	int population = 500;
 
 
@@ -368,7 +161,7 @@ int main( int argc, char* args[] )
 	attractionPoints.push_back(&cCenter);
 
 	// FlowGrid
-	int flowRes = 50;
+	int flowRes = 40;
 	std::vector<FlowPoint> flowPointArray;
 	FlowPoint fp;
 
@@ -390,6 +183,9 @@ int main( int argc, char* args[] )
 	{
 		bool running = true;
 		SDL_Event e;
+
+		SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0x0F);
+		SDL_RenderClear(renderer);
 
 		while(running)
 		{
@@ -441,16 +237,12 @@ int main( int argc, char* args[] )
 			mousePos.y = b;
 
 			if(buttons[Buttons::R]){
-
-				//for(int j = 0; j < population; j++){
-					people.clear();
-				//}
+				people.clear();
 				for(int j = 0; j < population; j++){
 					c =  Cell(Vector2(
 						(float) (rand()%SCREEN_WIDTH),
-						(float) (rand()%SCREEN_WIDTH))
+						(float) (rand()%SCREEN_HEIGHT))
 					);
-					// A random neighbor
 					people.push_back(c);
 				}
 			}
@@ -461,40 +253,41 @@ int main( int argc, char* args[] )
 
 			cCenter.pos = mousePos;
 
+			auto t3 = std::chrono::high_resolution_clock::now();
+			tf = std::chrono::duration<float, std::chrono::milliseconds::period>(t3 - t0).count();
+
 			SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-			//SDL_SetRenderDrawColor(renderer, 0xD0, 0xE7, 0xD2, 0x01);
-			SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x0F);
+			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0x2f);
+
+			/*
+			SDL_Rect fRect;
+			fRect.w = SCREEN_WIDTH;
+			fRect.x = 0;
+			fRect.y = 0;
+			fRect.h = SCREEN_HEIGHT;
+			SDL_RenderFillRect(renderer, &fRect);
+			*/
+			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 			SDL_RenderClear(renderer);
 
 			//Draw the flow grid with lines
-			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xAC);
-            auto t3 = std::chrono::high_resolution_clock::now();
-            tf = std::chrono::duration<float, std::chrono::milliseconds::period>(t3 - t0).count();
+			SDL_SetRenderDrawColor(renderer, 0xEE, 0x00, 0x00, 0x30);
 			for(FlowPoint& fPoint : flowPointArray){
 				Vector2 r;
 				//r.x = mousePos.x - fPoint.pos.x;
 				//r.y = mousePos.y - fPoint.pos.y;
-				r.x = (float) perlin.normalizedOctave1D(fPoint.pos.x/SCREEN_WIDTH + tf*.0001, 2);
-				r.y = (float) perlin.normalizedOctave1D(fPoint.pos.y/SCREEN_HEIGHT  + tf*.0001, 2);
-				fPoint.vel =  r;
-                fPoint.vel = fPoint.vel.normalized();
+                //r.x = (float) perlin.normalizedOctave1D(fPoint.pos.x/SCREEN_WIDTH + tf*.00001, 7);
+                //r.y = (float) perlin.normalizedOctave1D(fPoint.pos.y/SCREEN_HEIGHT  + tf*.00001, 7);
+				r.x = (float) perlinX.octave2D_11((fPoint.pos.x/flowRes) * tf*.000001,(fPoint.pos.y/flowRes) * tf*.0000001, 5);
+				r.y = (float) perlinY.octave2D_11((fPoint.pos.x/flowRes) * tf*.0000001,(fPoint.pos.y/flowRes) * tf*.0000001, 5);
+				fPoint.vel = r;
+				fPoint.vel = fPoint.vel.normalized();
 				SDL_RenderDrawLineF(renderer, fPoint.pos.x, fPoint.pos.y, fPoint.pos.x + fPoint.vel.x * 20, fPoint.pos.y + fPoint.vel.y * 20);
 			}
 
-			// Draw the grid
-			// 618264
-			//SDL_SetRenderDrawColor(renderer, 0x61, 0x82, 0x64, 0xFF);
-			//SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+			SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
 			for(int i = 0; i < population; i++){
 				for(FlowPoint fPoint : flowPointArray){
-						/*printf("FlowPoint : (%3.f, %3.f) v=(%.2f, %.2f)\n",
-						fPoint.pos.x,
-						fPoint.pos.y,
-						fPoint.vel.x,
-						fPoint.vel.y
-						);
-						 */
-
 					Vector2 r;
 					r.x = people[i].pos.x - fPoint.pos.x;
 					r.y = people[i].pos.y - fPoint.pos.y;
@@ -502,39 +295,39 @@ int main( int argc, char* args[] )
 					float d = r.norm();
 					if(d >= 0.01 && d <= 50){
 						Vector2 force =fPoint.vel;
-						force.setMag(1.0f/(d));
+						//force.setMag(1/d);
 						people[i].applyForce(&force);
 					}
 
 				}
-				people[i].Update(dt);
                 people[i].keep_in_bounds(0,SCREEN_WIDTH, 0, SCREEN_HEIGHT);
+				people[i].Update(dt);
 
-                // Draw a square
-                SDL_Rect fRect;
-/*                fRect.x = people[i].pos.x;
-                float rem = fRect.x%5;
-                if(rem < 2.5f)
-                    fRect.x = fRect.x - rem;
-                else
-                    fRect.x = fRect.x + (5 - rem);
+				// Draw a square
+				SDL_Rect fRect;
+				/*                fRect.x = people[i].pos.x;
+				float rem = fRect.x%5;
+				if(rem < 2.5f)
+				    fRect.x = fRect.x - rem;
+				else
+				    fRect.x = fRect.x + (5 - rem);
 
-                fRect.y = people[i].pos.y;
+				fRect.y = people[i].pos.y;
 
-                rem = fRect.y%5;
-                if(rem < 2.5f)
-                    fRect.y = fRect.y - rem;
-                else
-                    fRect.y = fRect.y + (5 - rem);
-*/
-                fRect.w = 5;
-                fRect.x = people[i].pos.x;
-                fRect.y = people[i].pos.y;
-                fRect.h = 5;
-                SDL_RenderFillRect(renderer, &fRect);
+				rem = fRect.y%5;
+				if(rem < 2.5f)
+				    fRect.y = fRect.y - rem;
+				else
+				    fRect.y = fRect.y + (5 - rem);
+				*/
+				fRect.w = 5;
+				fRect.x = people[i].pos.x;
+				fRect.y = people[i].pos.y;
+				fRect.h = 5;
+				SDL_RenderFillRect(renderer, &fRect);
 
-                // Draw a pixel
-                //SDL_RenderDrawPointF(renderer, people[i].pos.x, people[i].pos.y);
+				// Draw a pixel
+				//SDL_RenderDrawPointF(renderer, people[i].pos.x, people[i].pos.y);
 			}
 
 			SDL_FRect r;
@@ -542,10 +335,9 @@ int main( int argc, char* args[] )
 			w = h = 10.0f;
 
 			for(Cell* attractP : attractionPoints){
-				r = {attractP->pos.x-w/2, attractP->pos.y-h/2, w, h};
+				r = {(float) attractP->pos.x-w/2, (float) attractP->pos.y-h/2, w, h};
 				SDL_RenderFillRectF(renderer, &r);
 			}
-
 
 			SDL_RenderPresent(renderer);
 
